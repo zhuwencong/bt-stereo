@@ -14,7 +14,14 @@ from tkinter import messagebox, ttk
 from .engine import EngineConfig, StereoEngine
 from .wasapi import DEVICE_STATE_ACTIVE, Device, default_device, list_devices, set_default_device
 
-SETTINGS = Path(__file__).resolve().parent.parent / "settings.json"
+def _settings_path() -> Path:
+    """打包成 exe 后，配置放在 exe 旁边（便携）；源码运行时放在项目根目录。"""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent / "settings.json"
+    return Path(__file__).resolve().parent.parent / "settings.json"
+
+
+SETTINGS = _settings_path()
 MODES = {
     "左右分离（左音箱放左声道，右音箱放右声道）": "lr",
     "两边都放完整立体声（相当于双份外放）": "duplicate",
