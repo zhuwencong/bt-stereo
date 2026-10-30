@@ -2,6 +2,9 @@
 
 把两只普通蓝牙音箱变成一对左右声道音箱：左音箱只出声左声道，右音箱只出右声道。
 
+**不想装 Python？** [下载便携版（Windows 64 位，22 MB）](https://github.com/zhuwencong/bt-stereo/releases/latest)，
+解压双击 `bt-stereo.exe` 即可。
+
 ![界面预览](docs/preview.png)
 
 两只蓝牙音箱各自是独立设备，Windows 本身没有"把两只箱子组成一对"的功能，所以这里用
