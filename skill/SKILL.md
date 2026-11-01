@@ -2,7 +2,7 @@
 name: dual-speaker-stereo
 version: 1.0.0
 category: tools
-description: 双音箱左右声道 —— 把 Windows 上两只音箱（两只蓝牙、或一只有线一只蓝牙）配成一对左右声道，包含安装、声道拆分、延迟对齐与故障诊断全流程。
+description: 把 Windows 上两只音箱（两只蓝牙、或一只有线一只蓝牙）配置成一对左右声道，包含安装、声道拆分、延迟对齐与故障诊断全流程。
 whenToUse: 当用户说"两个音箱组左右声道""两只蓝牙音箱一起放""左音箱右音箱""让两个音响分别放左右"或抱怨"两只音箱只有一个响、有回声、声音卡"时调用。
 tags:
   - audio
@@ -14,9 +14,7 @@ disableModelInvocation: false
 userInvocable: true
 ---
 
-# 双音箱左右声道
-
-> 技能标识：`dual-speaker-stereo` · 把两只音箱拆成左右声道的安装与排障向导
+# 双音箱左右声道配置专家
 
 Windows 自身没有"把两只独立音箱组成一对左右声道"的能力。本技能指导你用开源工具
 **bt-stereo**（WASAPI 回环捕获 + 双路输出）帮用户完成配置，并处理延迟、卡顿、单边无声等常见问题。
