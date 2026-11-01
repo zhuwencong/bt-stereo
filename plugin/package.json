@@ -1,0 +1,22 @@
+{
+  "name": "dsh-plugin-bt-stereo",
+  "version": "0.1.0",
+  "description": "双音箱左右声道：在 Windows 上把两只音箱拆成左右声道的安装、配置与排障向导",
+  "main": "lib/index.js",
+  "author": "zhuwencong",
+  "license": "MIT",
+  "keywords": [
+    "deepseek",
+    "harness",
+    "audio",
+    "stereo",
+    "windows"
+  ],
+  "dsh": {
+    "name": "双音箱左右声道",
+    "category": "tools",
+    "bundle": {
+      "patch": "patches/bundle.yaml"
+    }
+  }
+}

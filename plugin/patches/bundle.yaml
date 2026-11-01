@@ -1,0 +1,4 @@
+# patches/bundle.yaml
+# DeepSeek Harness 客户端 Bundle Patch 声明文件
+# 本插件不改动客户端内核代码，保持空列表即可。
+[]
