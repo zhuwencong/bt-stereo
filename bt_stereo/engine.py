@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 import comtypes
 import numpy as np
 
-from .wasapi import Device, LoopbackCapture, RenderStream
+from .wasapi import Device, LoopbackCapture, MmcssThread, RenderStream
 
 
 class Ring:
@@ -61,6 +61,7 @@ class SideReader:
         delay_ms: float = 0.0,
         target_ms: float = 80.0,
         max_adj: float = 0.01,
+        max_slice_ms: float = 20.0,
     ):
         self.ring = ring
         self.side = side  # 'left' | 'right' | 'both'
@@ -71,6 +72,8 @@ class SideReader:
         self.rate_ratio = src_rate / float(out_rate)
         self.correction = 1.0
         self.max_adj = max_adj
+        # 单次取数上限（毫秒）。比一次渲染块大、比目标水位小，取个中间值。
+        self.max_slice_ms = max_slice_ms
         # 水位以"源帧"计量，所以用 src_rate 换算
         self.target = target_ms * src_rate / 1000.0
         # 延迟补的是输出侧静音，用 out_rate
@@ -80,6 +83,13 @@ class SideReader:
         self.resyncs = 0
         self.priming = True
         self.min_fill = self.target * 0.3
+        # 预缓冲要攒到多少才开声：首次启动攒满目标水位（宁可慢一点也别一开声就卡），
+        # 欠载恢复只要一半就够——否则每次卡顿都要再等 120ms 才出声，空档被拉长。
+        self.prime_need = self.target
+        self.recover_need = max(self.min_fill, self.target * 0.5)
+        # 水位跌破 min_fill 后先观察这么久，吸收"回环数据成块到达"造成的瞬时低水位；
+        # 超过就认定是真的被抽干，立刻重新预缓冲（原来是 300ms，空档太长）。
+        self.recover_after = 0.08
         self._init_pos = False
         self._ran = False
         self._last_t = 0.0
@@ -93,6 +103,12 @@ class SideReader:
         return frames
 
     def take(self, n: int, ring: Ring) -> np.ndarray:
+        # 单次最多取 max_slice 帧。free_frames() 是"输出缓冲整个空闲空间"，系统卡一下
+        # 就会变成几十毫秒；若照单全收，一次调用就能把水位从 120ms 抽到 40ms，紧接着
+        # 触发欠载。限流后水位平滑下降，少量静音补在尾部，听不出来但不再断流。
+        max_slice = int(self.out_rate * self.max_slice_ms / 1000.0)
+        if max_slice > 0 and n > max_slice:
+            n = max_slice
         out = np.zeros((n, 2), np.float32)
         if self.pending > 0:
             skip = min(n, self.pending)
@@ -118,24 +134,28 @@ class SideReader:
                 self.resyncs += 1
                 fill = float(self.target)
 
-            # 预缓冲：源没有声音（或刚启动）时先输出静音，等水位攒到目标再开声。
+            # 预缓冲：源没有声音（或刚启动）时先输出静音，等水位攒够再开声。
+            # 首次启动攒满 target；欠载恢复只攒一半，避免空档被预缓冲二次拉长。
             if self.priming:
-                if fill >= self.target:
+                if fill >= self.prime_need:
                     self.priming = False
+                    self.prime_need = self.recover_need
+                    self._low_since = 0.0
                 else:
                     return out
             else:
                 # 关键：回环数据常常是"成块"到达的，瞬时低水位不能当成空闲，
                 # 否则会反复停-等，把连续的音乐切成一串短促的碎片。
-                # 只有低水位持续 300ms 以上，才认为是源真的没声音了，重新预缓冲。
+                # 只有低水位持续一小段时间，才认为是缓冲真被抽干了，重新预缓冲。
                 if fill >= self.min_fill:
                     self._low_since = 0.0
                 else:
                     now = time.monotonic()
                     if self._low_since == 0.0:
                         self._low_since = now
-                    elif now - self._low_since > 0.3:
+                    elif now - self._low_since > self.recover_after:
                         self.priming = True
+                        self.prime_need = self.recover_need
                         self._low_since = 0.0
                         if self._ran:
                             self.underruns += 1
@@ -163,7 +183,14 @@ class SideReader:
                 # 缓冲不够：能放多少放多少，剩下的用静音补齐，避免整块掉音
                 m = int(max(0.0, (fill - 2)) / step_unit)
                 if m <= 0:
+                    # 环被彻底抽干。这是最常见的欠载路径（捕获线程一被饿死就走这里），
+                    # 必须同时把恢复阈值降到 recover_need，否则要再攒满 120ms 才出声，
+                    # 空档被人为拉长一倍。原来这里还漏记了欠载数。
                     self.priming = True
+                    self.prime_need = self.recover_need
+                    self._low_since = 0.0
+                    if self._ran:
+                        self.underruns += 1
                     return out
                 advance = m * step_unit
             if m <= 0:
@@ -187,8 +214,10 @@ class SideReader:
         self.pos = 0.0
         self._init_pos = False
         self.priming = True
+        self.prime_need = self.target  # 重连视同首次启动，攒满再出声
         self.correction = 1.0
         self._last_t = 0.0
+        self._low_since = 0.0
 
 
 @dataclass
@@ -202,6 +231,7 @@ class EngineConfig:
     right_delay_ms: float = 0.0
     target_ms: float = 120.0
     ring_seconds: float = 3.0
+    max_slice_ms: float = 20.0
 
 
 @dataclass
@@ -259,9 +289,11 @@ class StereoEngine:
 
         self._readers = {
             "left": SideReader(self.ring, left_rate, src_rate, left_side,
-                               self.cfg.left_delay_ms, self.cfg.target_ms),
+                               self.cfg.left_delay_ms, self.cfg.target_ms,
+                               max_slice_ms=self.cfg.max_slice_ms),
             "right": SideReader(self.ring, right_rate, src_rate, right_side,
-                                self.cfg.right_delay_ms, self.cfg.target_ms),
+                                self.cfg.right_delay_ms, self.cfg.target_ms,
+                                max_slice_ms=self.cfg.max_slice_ms),
         }
         self._stop.clear()
         self._stats = EngineStats(running=True, error="")
@@ -341,6 +373,9 @@ class StereoEngine:
 
     def _capture_worker(self) -> None:
         comtypes.CoInitialize()
+        # 捕获线程也必须进 MMCSS：它一旦被抢 CPU，环形缓冲就断供，两只音箱会同时哑。
+        mmcss = MmcssThread()
+        mmcss.enter()
         cap = None
         try:
             while not self._stop.is_set():
@@ -384,12 +419,17 @@ class StereoEngine:
                         self._stats.level *= 0.90
                 time.sleep(0.004)
         finally:
+            mmcss.leave()
             if cap is not None:
                 cap.close()
             comtypes.CoUninitialize()
 
     def _render_worker(self, side: str, device: Device) -> None:
         comtypes.CoInitialize()
+        # 渲染线程是"偶尔卡顿"的主要受害者：它是 1ms 轮询的死循环，一旦被浏览器
+        # 渲染/杀毒扫描挤出 12ms，输出缓冲就干了。注册 MMCSS 让系统优先调度它。
+        mmcss = MmcssThread()
+        mmcss.enter()
         stream = None
         reader = self._readers[side]
         key = f"{side}_state"
@@ -433,7 +473,9 @@ class StereoEngine:
                         time.sleep(0.002)
                         continue
                     frames = reader.take(free, self.ring)
-                    stream.write(free, frames)
+                    # 按实际取到的长度写：take() 有单次上限，可能少于 free。
+                    # 若照着 free 写，缓冲区尾部落不到数据，会被上一轮的残留音频污染。
+                    stream.write(len(frames), frames)
                     time.sleep(0.001)
                 except Exception:
                     # 单只音箱掉线：只关这一路，另一路继续出声，然后自动重连
@@ -446,6 +488,7 @@ class StereoEngine:
                     self._set_state(key, "重连中")
                     time.sleep(0.3)
         finally:
+            mmcss.leave()
             if stream is not None:
                 stream.close()
             self._streams.pop(side, None)

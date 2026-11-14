@@ -464,6 +464,73 @@ def set_default_device(device_id: str, role: int = eConsole) -> bool:
         return False
 
 
+# ---------------------------------------------------------------- 线程调度
+MMCSS_AUDIO_TASK = "Audio"
+
+_avrt = None
+
+
+def _avrt_dll():
+    """懒加载 avrt.dll（MMCSS 接口）。加载或绑定失败返回 None，之后不再重试。"""
+    global _avrt
+    if _avrt is None:
+        try:
+            dll = ctypes.WinDLL("avrt")
+            dll.AvSetMmThreadCharacteristicsW.argtypes = [ctypes.c_wchar_p, POINTER(DWORD)]
+            dll.AvSetMmThreadCharacteristicsW.restype = c_void_p
+            dll.AvRevertMmThreadCharacteristics.argtypes = [c_void_p]
+            dll.AvRevertMmThreadCharacteristics.restype = ctypes.c_int
+            _avrt = dll
+        except Exception:
+            _avrt = False
+    return _avrt if _avrt else None
+
+
+class MmcssThread:
+    """把当前线程注册进 Windows MMCSS 的 "Audio" 类别。
+
+    这是 Windows 音频程序的标准做法。普通线程的调度延迟不受任何保证：浏览器
+    渲染、杀毒扫描、Windows Update 都能把它挤到 12ms 之外，数据来不及写进输出
+    缓冲，听感就是"偶尔咔一下"。注册 MMCSS 之后系统会给这个线程预留调度配额
+    （优先级相当于 24 左右），配合 timeBeginPeriod(1) 能把唤醒延迟压到 1~2ms。
+
+    注册失败（旧系统、被组策略禁用）不致命，退化为普通线程继续跑。
+    """
+
+    def __init__(self, task: str = MMCSS_AUDIO_TASK):
+        self.task = task
+        self.handle = None
+
+    def enter(self) -> bool:
+        dll = _avrt_dll()
+        if dll is None:
+            return False
+        try:
+            idx = DWORD(0)
+            self.handle = dll.AvSetMmThreadCharacteristicsW(self.task, byref(idx)) or None
+        except Exception:
+            self.handle = None
+        return self.handle is not None
+
+    def leave(self) -> None:
+        if not self.handle:
+            return
+        dll = _avrt_dll()
+        if dll is not None:
+            try:
+                dll.AvRevertMmThreadCharacteristics(self.handle)
+            except Exception:
+                pass
+        self.handle = None
+
+    def __enter__(self) -> bool:
+        return self.enter()
+
+    def __exit__(self, *_exc) -> bool:
+        self.leave()
+        return False
+
+
 # ---------------------------------------------------------------- 播放流
 class RenderStream:
     """共享模式播放流。"""
