@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """命令行入口。
 
-    python -m bt_stereo list
-    python -m bt_stereo run --left 2 --right 3 --source 0
-    python -m bt_stereo run            # 交互式选择
+    python -m bt_stereo --cli list
+    python -m bt_stereo --cli run --left 2 --right 3 --source 0
+    python -m bt_stereo --cli run            # 交互式选择
+
+（`--cli` 可省略：直接写子命令也认，例如 `python -m bt_stereo list`。)
 """
 from __future__ import annotations
 
@@ -15,6 +17,20 @@ from .engine import EngineConfig, StereoEngine
 from .wasapi import DEVICE_STATE_ACTIVE, Device, default_device, list_devices, mix_format
 
 BAR = "▁▂▃▄▅▆▇█"
+
+
+def _force_utf8() -> None:
+    """让输出稳定为 UTF-8。
+
+    打包成 exe 后 sys.stdout.encoding 跟随系统 ANSI 代码页（中文 Windows 是 936），
+    bat 里再 chcp 65001 也来不及——进程启动时编码已确定。这里主动改回来，
+    否则重定向到文件或管道时中文全是乱码。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # 老版本 Python / 被替换过的 stream
+            pass
 
 
 def _devices() -> list[Device]:
@@ -176,6 +192,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8()
     argv = sys.argv[1:] if argv is None else argv
     parser = build_parser()
     args = parser.parse_args(argv)

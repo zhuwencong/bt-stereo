@@ -8,8 +8,42 @@
 - 必须是 **Windows 10 / 11**：程序依赖 WASAPI 的 COM 接口，macOS / Linux 上无法运行。
   先执行 `ver` 或 `[System.Environment]::OSVersion` 确认；不是 Windows 就直接告诉用户不支持。
 - 需要 **Python 3.10+**：`python --version`
-- 没装 Python 的话，让用户去 <https://www.python.org/downloads/> 下载，
-  **安装时必须勾选 "Add python.exe to PATH"**（这一步只能用户自己点，你不能代劳）。
+
+### ⚠️ 两个必须避开的判定陷阱
+
+**陷阱 1：`where python` 命中的可能不是用户的 Python。**
+Windows 自带一个"应用商店占位符" `%LOCALAPPDATA%\Microsoft\WindowsApps\python.exe`，
+它**存在、也在 PATH 里，但跑不起来**（`python -V` 退出码 49，输出"Python was not found"）。
+某些 AI 环境还会往 PATH 注入自己的 Python，同样不是用户装的。
+
+因此**不能只判命令是否存在，必须真跑一次**：
+
+```bat
+python -c "import sys; print(sys.executable, sys.version)"
+```
+
+退出码非 0，或者输出的路径看着像商店占位符 / 别人的工具目录，就当"用户没装 Python"处理。
+
+**陷阱 2：`import numpy, comtypes` 全过 ≠ 能开图形界面。**
+GUI 还依赖 **tkinter**，而它是最容易缺的——python.org 安装器的
+`tcl/tk and IDLE` 是独立勾选项，精简安装、嵌入式发行版、部分包管理器默认都不带。
+所以依赖检查必须把 tkinter 算进去：
+
+```bat
+python -c "import numpy, comtypes, tkinter"
+```
+
+**只要你打算启动 GUI，就先确认 tkinter 在。** 缺了别去 `pip install tkinter`
+（PyPI 上没有这个包，装了也白装），直接引导用户：① 重装 Python 勾 `tcl/tk and IDLE`，
+② 或者用便携版。
+
+### 建议：优先推荐便携版
+
+如果用户只是想用起来、不打算改代码，**直接给便携版链接最省事**：
+<https://github.com/zhuwencong/bt-stereo/releases/latest>
+
+它自带 Python 运行时和 tkinter，不依赖系统环境，也就绕开了上面两个陷阱。
+下载 `bt-stereo-win64.zip`，**解压整个文件夹**（不要只拷 exe，见第 1 节）。
 
 ## 1. 拿到代码
 
@@ -21,15 +55,22 @@ cd bt-stereo
 没有 git 就让用户下载 ZIP 解压（GitHub 绿色 `Code` → `Download ZIP`；
 国内网络用 Gitee：<https://gitee.com/xingchencong/bt-stereo>）。
 
+> **仓库里没有 exe。** 如果你看到某个目录下孤零零躺着一个 `bt-stereo.exe`，
+> 那是 PyInstaller onedir 模式的引导壳——它必须和旁边的 `_internal\` 目录一起才能跑。
+> 只有 exe 没有 `_internal\` 时，运行会**无任何输出、静默退出**（bootloader 返回 -1，
+> 连错误都不打印），最容易误判成"程序损坏"。缺 `_internal\` 就别折腾了，去 Releases 下完整包。
+
 ## 2. 装依赖
 
 ```bat
-python -m pip install numpy comtypes
+python -m pip install -r requirements.txt
 ```
 
-国内网络慢时加镜像：`-i https://pypi.tuna.tsinghua.edu.cn/simple`
+等价于 `python -m pip install numpy comtypes`。国内网络慢时加镜像：
+`-i https://pypi.tuna.tsinghua.edu.cn/simple`
 
 只需要这两个包，**不需要** soundcard / sounddevice / VB-Cable / Voicemeeter 之类的虚拟声卡。
+注意 **不要加 `--upgrade`**：会把用户或其它工具正在用的 numpy 顶到新版本，有搞坏环境的风险。
 
 ## 3. 先体检，再动手（重要）
 
@@ -56,6 +97,13 @@ python -m bt_stereo --cli doctor
 
 或者 `python -m bt_stereo`（不加 `--cli` 打开图形界面）。
 
+> `启动.bat` 现在会自检 Python / 版本 / numpy / comtypes / **tkinter**，
+> 任一项不满足都会弹出中文说明并 `pause`，不会再静默退出。
+> 如果用户是双击启动的，让他把屏幕上的提示原样发给你，比你自己复现快得多。
+>
+> 注意区分：`启动.bat`（中文名）是**唯一实现**，`start.bat` 只是转发过去。
+> 改逻辑请改 `启动.bat`。
+
 界面上只需要用户选两件事：**左声道音箱**、**右声道音箱**。
 「音源」保持默认即可——程序在点「开始」时会自动把 Windows 默认播放设备切到音源端点，
 停止时自动切回，所以用户不需要去声音设置里手动改任何东西。
@@ -65,6 +113,8 @@ python -m bt_stereo --cli doctor
 ```bat
 python -m bt_stereo --cli run --left "Q6" --right "DOME 2" --source "扬声器 (ToDesk Virtual Audio)"
 ```
+
+`--cli` 可以省略（`python -m bt_stereo list` 也能走命令行），但**建议统一带上**，读起来更明确。
 
 ## 5. 验证
 

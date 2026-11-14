@@ -7,9 +7,22 @@ import queue
 import sys
 import threading
 import time
-import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, ttk
+
+try:
+    import tkinter as tk
+    from tkinter import messagebox, ttk
+except ImportError:  # 精简安装 / 嵌入式发行版常常不带 tkinter
+    raise SystemExit(
+        "当前 Python 缺少 tkinter，图形界面无法启动。\n"
+        "\n"
+        "任选一种办法：\n"
+        "  1. 重装 Python，安装时勾选 “tcl/tk and IDLE”（选 Modify 即可补装）\n"
+        "  2. 用便携版，不需要装 Python：\n"
+        "     https://github.com/zhuwencong/bt-stereo/releases/latest\n"
+        "  3. 命令行模式功能完整（体检 / 拆分 / 测试都能用）：\n"
+        "     python -m bt_stereo --cli doctor"
+    )
 
 from .engine import EngineConfig, StereoEngine
 from .wasapi import DEVICE_STATE_ACTIVE, Device, default_device, list_devices, set_default_device

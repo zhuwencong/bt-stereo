@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 """验证"蓝牙检测"弹窗能创建、内容正确，且不抛异常。"""
 import sys
-import tkinter as tk
 
-sys.path.insert(0, r"E:\deepseek")
+try:
+    import tkinter as tk
+except ImportError:
+    print("SKIP: 当前 Python 缺少 tkinter，无法测试图形界面。")
+    print("      补装：重装 Python 勾选 “tcl/tk and IDLE”，或改用便携版。")
+    raise SystemExit(0)
 
 from bt_stereo.gui import App
 

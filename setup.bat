@@ -1,44 +1,89 @@
 @echo off
-chcp 65001 >nul
+setlocal
 cd /d "%~dp0"
 
 echo ==========================================
-echo   ç¬¬ä¸€æ¬¡ä½¿ç”¨ï¼šå®‰è£…è¿è¡Œéœ€è¦çš„ä¸¤ä¸ªåº“
+echo   µÚÒ»´ÎÊ¹ÓÃ£º°²×°ÔËĞĞĞèÒªµÄÁ½¸ö¿â
 echo ==========================================
 echo.
 
-where python >nul 2>nul
+set "PY="
+where py >nul 2>nul && set "PY=py -3"
+if not defined PY (
+    where python >nul 2>nul && set "PY=python"
+)
+if not defined PY goto no_python
+
+%PY% -c "import sys" >nul 2>nul
+if errorlevel 1 goto no_python
+
+echo [1/3] ¼ì²é Python °æ±¾ ...
+%PY% -c "import sys; assert sys.version_info >= (3, 10), sys.version; print('     Python ' + sys.version.split()[0] + ' OK')"
 if errorlevel 1 (
-    echo [X] æ²¡æ‰¾åˆ° Pythonã€‚
-    echo     è¯·å…ˆåˆ° https://www.python.org/downloads/ ä¸‹è½½å®‰è£…ï¼Œ
-    echo     å®‰è£…æ—¶åŠ¡å¿…å‹¾é€‰ "Add python.exe to PATH"ã€‚
+    echo [X] Python °æ±¾Ì«¾É£¬ĞèÒª 3.10 »ò¸ü¸ß¡£
+    pause
+    exit /b 1
+)
+
+rem °æ±¾¼ì²éÍ¨¹ıÎ´±ØÄÜ×°°ü£¨±ÈÈçÄ³Ğ©Ç¶ÈëÊ½·¢ĞĞ°æÃ»ÓĞ pip£©
+echo [2/3] ¼ì²é pip ...
+%PY% -m pip --version >nul 2>nul
+if errorlevel 1 (
+    echo [X] Õâ¸ö Python Ã»ÓĞ pip£¬ÎŞ·¨°²×°ÒÀÀµ¡£
+    echo     ½¨Òé¸ÄÓÃ±ãĞ¯°æ£ºhttps://github.com/zhuwencong/bt-stereo/releases/latest
+    pause
+    exit /b 1
+)
+
+echo [3/3] °²×° numpy ºÍ comtypes ...
+rem ²»¼Ó --upgrade£º±ÜÃâ°ÑÓÃ»§/ÆäËü¹¤¾ßÕıÔÚÓÃµÄ numpy ¶¥µ½ĞÂ°æ±¾
+%PY% -m pip install -r requirements.txt
+if errorlevel 1 (
+    echo.
+    echo [X] °²×°Ê§°Ü¡£Èç¹ûÊÇÍøÂçÎÊÌâ£¬¿ÉÒÔÊÔÊÔ¹úÄÚ¾µÏñ£º
+    echo     %PY% -m pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
     echo.
     pause
     exit /b 1
 )
 
-echo [1/2] æ£€æŸ¥ Python ç‰ˆæœ¬ ...
-python -c "import sys; assert sys.version_info >= (3, 10), sys.version; print('     Python', sys.version.split()[0], 'OK')"
+rem ×°Íê±ØĞëÕæÅÜÒ»´Î²ÅËã³É¹¦£¬pip ÍË³öÂë 0 ²»´ú±íÄÜ import
+echo.
+echo ÑéÖ¤ÒÀÀµ ...
+%PY% -c "import numpy, comtypes; print('     numpy ' + numpy.__version__ + ' / comtypes ' + comtypes.__version__ + ' OK')"
 if errorlevel 1 (
-    echo [X] Python ç‰ˆæœ¬å¤ªæ—§ï¼Œéœ€è¦ 3.10 æˆ–æ›´é«˜ã€‚
+    echo [X] ÒÀÀµ×°ÁËµ«µ¼ÈëÊ§°Ü£¬Çë°ÑÉÏÃæµÄ´íÎóĞÅÏ¢·¢¸ø×÷Õß¡£
     pause
     exit /b 1
 )
 
-echo [2/2] å®‰è£… numpy å’Œ comtypes ...
-python -m pip install --upgrade numpy comtypes
+%PY% -c "import tkinter" >nul 2>nul
 if errorlevel 1 (
     echo.
-    echo [X] å®‰è£…å¤±è´¥ã€‚å¦‚æœæ˜¯ç½‘ç»œé—®é¢˜ï¼Œå¯ä»¥è¯•è¯•å›½å†…é•œåƒï¼š
-    echo     python -m pip install numpy comtypes -i https://pypi.tuna.tsinghua.edu.cn/simple
+    echo [!] ÌáĞÑ£ºÕâ¸ö Python »¹È±ÉÙ tkinter£¬Í¼ĞÎ½çÃæ»á´ò²»¿ª¡£
+    echo     ÖØĞÂÔËĞĞ Python °²×°°üÑ¡ Modify£¬¹´ÉÏ "tcl/tk and IDLE" ¼´¿É²¹×°¡£
+    echo     »òÕßÖ±½ÓÓÃ±ãĞ¯°æ£¨²»ĞèÒª Python£©£º
+    echo     https://github.com/zhuwencong/bt-stereo/releases/latest
     echo.
-    pause
-    exit /b 1
 )
 
 echo.
 echo ==========================================
-echo   å®‰è£…å®Œæˆï¼ç°åœ¨åŒå‡» "å¯åŠ¨.bat" å°±èƒ½ç”¨äº†
+echo   °²×°Íê³É£¡ÏÖÔÚË«»÷ "Æô¶¯.bat" ¾ÍÄÜÓÃÁË
 echo ==========================================
 echo.
 pause
+exit /b 0
+
+:no_python
+echo [X] Ã»ÕÒµ½¿ÉÓÃµÄ Python¡£
+echo.
+echo     Äã¿´µ½µÄ "python" ¿ÉÄÜÖ»ÊÇÓ¦ÓÃÉÌµêÕ¼Î»·û¡£
+echo     Çëµ½ https://www.python.org/downloads/ ÏÂÔØ°²×°£¬
+echo     °²×°Ê±Îñ±Ø¹´Ñ¡ "Add python.exe to PATH" ºÍ "tcl/tk and IDLE"¡£
+echo.
+echo     ²»Ïë×°Ò²ĞĞ£¬Ö±½ÓÓÃ±ãĞ¯°æ£º
+echo     https://github.com/zhuwencong/bt-stereo/releases/latest
+echo.
+pause
+exit /b 1

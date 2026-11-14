@@ -1,11 +1,3 @@
 @echo off
-chcp 65001 >nul
-cd /d "%~dp0"
-python -m bt_stereo --cli list
-echo.
-echo ==========================================
-echo  Choose LEFT / RIGHT speaker and SOURCE
-echo ==========================================
-echo.
-python -m bt_stereo --cli run
-pause
+rem 转发到「命令行.bat」。
+call "%~dp0命令行.bat" %*

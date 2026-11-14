@@ -11,7 +11,15 @@ settings.json
 # 打包产物
 build/
 dist/
-*.spec
+*.manifest
+
+# 可执行文件不要入库！
+# 这里是 PyInstaller onedir 模式：exe 只是个引导壳，真正的程序在它旁边的
+# _internal/ 目录里（python312.dll、tkinter、numpy 全在那儿）。
+# 只提交 exe 而不带 _internal，双击会毫无反应、进程静默退出——
+# 这正是以前踩过的坑。要分发请走 GitHub Releases 的完整 zip。
+*.exe
+_internal/
 
 # 编辑器
 .vscode/

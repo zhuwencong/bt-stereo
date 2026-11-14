@@ -3,7 +3,11 @@
 把两只普通蓝牙音箱变成一对左右声道音箱：左音箱只出声左声道，右音箱只出右声道。
 
 **不想装 Python？** [下载便携版（Windows 64 位，22 MB）](https://github.com/zhuwencong/bt-stereo/releases/latest)，
-解压双击 `bt-stereo.exe` 即可。
+**解压整个 zip，双击里面的 `bt-stereo.exe`** 即可。
+
+> ⚠️ **请不要只把 `bt-stereo.exe` 单独拷出来。** 它是 PyInstaller 的引导壳，
+> 真正的程序在同目录的 `_internal\` 文件夹里（解释器、tkinter、numpy 全在那儿）。
+> 只拷 exe 会双击后毫无反应，进程静默退出——这不是坏了，是缺件了。
 
 ![界面预览](docs/preview.png)
 
@@ -29,16 +33,30 @@ A 箱、右声道送给 B 箱，并实时补偿两只箱子之间的时钟漂移
         （复制成双声道）      （复制成双声道）
 ```
 
-## 零基础上手（四步，不需要懂代码）
+## 零基础上手
+
+**推荐路线：不装 Python，直接用便携版**（最快，也不会有缺 tkinter 的问题）
+
+1. **下载**：[Releases 页面](https://github.com/zhuwencong/bt-stereo/releases/latest)
+   下 `bt-stereo-win64.zip`
+2. **解压整个 zip**（别只挑 exe 出来，见上面那条警告）
+3. **双击 `bt-stereo.exe`**：选好左/右音箱，点「开始」，然后正常放歌
+
+**源码路线：想改代码或跑测试才需要**
 
 1. **下载**：在 GitHub 页面点绿色 `Code` → `Download ZIP`，解压到任意目录
    （Gitee 用户点「克隆/下载」→「下载 ZIP」，国内网速更快）
 2. **装 Python**：<https://www.python.org/downloads/> 下载 3.10 以上版本，
-   安装时**务必勾选 `Add python.exe to PATH`**
+   安装时**务必勾选这两项**：
+   - `Add python.exe to PATH`（否则 `setup.bat` 找不到 Python）
+   - `tcl/tk and IDLE`（**否则图形界面打不开**，这是最常见的坑）
 3. **双击 `setup.bat`**：自动安装 `numpy` 和 `comtypes`，看到"安装完成"即可
 4. **双击 `启动.bat`**：选好左/右音箱，点「开始」，然后正常放歌
 
-> 装好之后日常使用只需要第 4 步。程序会记住你的选择，下次双击就是上次的配置。
+> 装好之后日常使用只需要最后一步。程序会记住你的选择，下次双击就是上次的配置。
+>
+> 新版 `启动.bat` 会在任何环节失败时弹出中文说明（缺 Python / 版本太旧 / 缺 numpy /
+> **缺 tkinter**），不会再出现"双击没反应"。如果它还是没说清楚，请把屏幕内容发给作者。
 
 ## 更懒的用法：把链接丢给 AI
 
@@ -140,6 +158,22 @@ python tests\test_doctor_window.py    :: 验证"蓝牙检测"弹窗内容
 正常情况下左箱主频 ~1000Hz、右箱 ~3000Hz、串音接近 0。
 
 ## 六、常见问题
+
+**双击 `启动.bat` 或 `bt-stereo.exe` 什么反应都没有？**
+
+按这三种情况对号入座：
+
+1. **双击 `启动.bat`，黑框一闪就没了** —— 你的 Python 缺 `tkinter`。
+   重新运行 Python 安装包 → `Modify` → 勾上 `tcl/tk and IDLE`。
+   （新版 `启动.bat` 会直接把这句话弹在屏幕上，不用猜了。）
+2. **双击 `bt-stereo.exe` 没反应** —— 你只拷了 exe 出来。回到 zip 里解压**整个文件夹**，
+   exe 必须和 `_internal\` 放在一起。
+3. **`启动.bat` 提示"没找到 Python"** —— 你看到的 `python` 可能只是 Windows 应用商店的
+   占位符（`python -V` 会提示去商店安装）。装个真 Python，或者直接用便携版。
+
+实在不想折腾就用便携版，不依赖系统里的任何东西：
+
+<https://github.com/zhuwencong/bt-stereo/releases/latest>
 
 **只显示一只蓝牙音箱？**
 系统层面没连上第二只。先断开再重连，或换一个 USB 蓝牙适配器。部分笔记本内置蓝牙

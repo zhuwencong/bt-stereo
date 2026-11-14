@@ -293,6 +293,47 @@ def classify(eps: list, paired: list[dict]) -> tuple[list, list]:
 
 
 # ---------------------------------------------------------------- 报告
+def _add_runtime_info(add) -> bool:
+    """打印 Python / 依赖 / tkinter 状态，返回 GUI 是否可用。
+
+    加这一段是因为以前的 doctor 只查蓝牙，结论却让用户"双击 启动.bat"——
+    要是机器缺 tkinter，那句话就是条死路。答案得自己先知道。
+    """
+    import platform
+    import sys
+
+    frozen = getattr(sys, "frozen", False)
+    where = "打包运行时（内置 Python）" if frozen else sys.executable
+    add(f"Python   {platform.python_version()}  {where}")
+
+    def _probe(modname: str) -> tuple[bool, str]:
+        try:
+            mod = __import__(modname)
+            return True, getattr(mod, "__version__", "?")
+        except Exception as exc:  # noqa: BLE001 - 缺什么都要报，不能挑
+            return False, type(exc).__name__
+
+    gui_ok = True
+    for name in ("numpy", "comtypes"):
+        ok, ver = _probe(name)
+        add(f"{name:<8} {'✔ ' + str(ver) if ok else '✘ 缺失'}")
+
+    ok, ver = _probe("tkinter")
+    if ok:
+        add(f"tkinter  ✔ Tk {ver}")
+    else:
+        gui_ok = False
+        add("tkinter  ✘ 缺失 → 图形界面用不了，只能用命令行或便携版")
+    return gui_ok
+
+
+def _launch_hint() -> str:
+    """在结论里给出的可复制命令，按运行方式区分。"""
+    import sys
+
+    return "bt-stereo.exe" if getattr(sys, "frozen", False) else "python -m bt_stereo"
+
+
 def build_report() -> tuple[str, bool | None]:
     lines: list[str] = []
     add = lines.append
@@ -305,6 +346,10 @@ def build_report() -> tuple[str, bool | None]:
     osi = os_info()
     add("=== 系统 ===")
     add(f"{osi['name']} {osi['release']}  (Build {osi['build']})")
+    add("")
+
+    add("=== 运行环境 ===")
+    gui_ok = _add_runtime_info(add)
     add("")
 
     add("=== 蓝牙适配器 ===")
@@ -357,8 +402,14 @@ def build_report() -> tuple[str, bool | None]:
         verdict = False
     elif len(bt_eps) >= 2:
         hf = [ep.name for ep, _ in bt_eps if _hands_free(ep.name)]
-        add(f"✔ 当前有 {len(bt_eps)} 只蓝牙音箱同时在线，硬件和驱动支持双连。")
-        add("  直接双击 启动.bat，把这两只选成左/右声道即可。")
+        add(f"✔ 检测到 {len(bt_eps)} 只蓝牙音箱同时在线（并发能力未验证，断流见 README 六）。")
+        if gui_ok:
+            add("  直接双击 启动.bat，把这两只选成左/右声道即可。")
+        else:
+            add("  但图形界面不可用（缺 tkinter），请走命令行：")
+            add(f"     {_launch_hint()} --cli run --left \"{bt_eps[0][0].name}\" --right \"{bt_eps[1][0].name}\"")
+            add("  或者下载便携版（自带运行时，不用装 Python）：")
+            add("     https://github.com/zhuwencong/bt-stereo/releases/latest")
         if hf:
             add(f"  ⚠ 其中 {hf} 是“免手操”端点，要选 Stereo/立体声 那个。")
         verdict = True
