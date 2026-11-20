@@ -35,3 +35,8 @@ desktop.ini
 # 本地推送脚本（含明文令牌，绝不入库）
 push.bat
 _commitmsg*.txt
+
+# 本地发布辅助脚本（读环境变量令牌，不入库）
+_upload_gitee.py
+_*.json
+_dl*.zip
