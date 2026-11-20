@@ -37,10 +37,19 @@ def run_build() -> None:
 
 
 def add_readme() -> None:
-    print("[2/4] 补上使用说明 ...")
+    print("[2/4] 补上使用说明和图标 ...")
     src = ROOT / "README.md"
     # zip 里的文件名尽量用 ASCII，避免各种解压工具的编码问题
     (APP_DIR / "README.md").write_bytes(src.read_bytes())
+
+    # 图标要跟着产物走：用户想换快捷方式图标、或者自己重新打包时都用得上。
+    # 只存在于 docs/ 而没进产物，就等于每次都靠手工补。
+    for name in ("icon.ico", "icon-preview.png"):
+        s = ROOT / "docs" / name
+        if s.exists():
+            (APP_DIR / name).write_bytes(s.read_bytes())
+        else:
+            print(f"  [!] 找不到 docs/{name}，图标会缺失")
 
 
 def add_launcher_guard() -> None:
