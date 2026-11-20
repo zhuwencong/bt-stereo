@@ -12,6 +12,8 @@ settings.json
 build/
 dist/
 *.manifest
+# 发布用的 zip 走 Releases 上传，不入库（每次构建内容都变，进去就是几十 MB 垃圾）
+bt-stereo-win64.zip
 
 # 可执行文件不要入库！
 # 这里是 PyInstaller onedir 模式：exe 只是个引导壳，真正的程序在它旁边的
