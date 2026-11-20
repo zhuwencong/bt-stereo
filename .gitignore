@@ -29,3 +29,7 @@ _internal/
 Thumbs.db
 desktop.ini
 *.log
+
+# 本地推送脚本（含明文令牌，绝不入库）
+push.bat
+_commitmsg*.txt
